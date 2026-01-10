@@ -11,8 +11,7 @@ baseurl: "/sup"                   # The name of your repository
 # -----------------------------------------------------------------------------
 # BUILD SETTINGS
 # -----------------------------------------------------------------------------
-theme: slate
-markdown: kramdown
+remote_theme: pages-themes/slate@v0.2.0
 
 # Standard plugins supported by GitHub Pages
 plugins:
