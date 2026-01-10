@@ -10,6 +10,7 @@
 
 ### May
 
+- [9th: Paddle Skedaddle](https://www.norfolksupracing.co.uk/the-paddle-skedaddle)
 - [30th: Salaca 100](https://salaca100marathon.lv/en/home/)
 
 ### June
@@ -23,16 +24,16 @@
 
 ### Aug
 
+- [1st: Loch Lomond??? TBC]()
 
 ### Sep
 
 - [18th: Great Glen](https://greatglenpaddlechallenge.com/)
-- []()
+- [19th: Great Glen](https://greatglenpaddlechallenge.com/)
 
 ### Oct
 
-- [Glasgow to Edinburgh](#)
+- [3rd: Glasgow to Edinburgh](https://www.facebook.com/paddlescot)
+- [4th: Glasgow to Edinburgh](https://www.facebook.com/paddlescot)
 
 
-- []()
-## 
