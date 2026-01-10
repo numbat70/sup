@@ -11,7 +11,7 @@ baseurl: "/sup"                   # The name of your repository
 # -----------------------------------------------------------------------------
 # BUILD SETTINGS
 # -----------------------------------------------------------------------------
-theme: minima
+theme: slate
 markdown: kramdown
 
 # Standard plugins supported by GitHub Pages
