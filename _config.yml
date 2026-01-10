@@ -1,21 +1,46 @@
-title: "Sup Site"
-email: numbat70@icloud.com
-description: SUP Stuff
+# -----------------------------------------------------------------------------
+# SITE INFORMATION
+# -----------------------------------------------------------------------------
+title: "SUP"
+description: "SUP Stuff"
+author: "numbat70"
+email: your-email@example.com
 
 # -----------------------------------------------------------------------------
-# URL SETTINGS (Crucial for GitHub Pages Project Sites)
+# URL SETTINGS (Critical for project sites)
 # -----------------------------------------------------------------------------
 url: "https://numbat70.github.io" # Your base domain
 baseurl: "/sup"                   # The name of your repository
 
 # -----------------------------------------------------------------------------
-# BUILD SETTINGS
+# THEME SETTINGS (Slate)
 # -----------------------------------------------------------------------------
+# We use remote_theme so it works identically on GitHub and your local machine.
 remote_theme: pages-themes/slate@v0.2.0
 
-# Standard plugins supported by GitHub Pages
+# Slate-specific options
+show_downloads: true  # Shows "Download Zip/Tar" buttons in the header
+# google_analytics: UA-123456-7  # Uncomment and add ID if you use GA
+
+# -----------------------------------------------------------------------------
+# BUILD SETTINGS & PLUGINS
+# -----------------------------------------------------------------------------
+markdown: kramdown
+theme: jekyll-theme-slate # Fallback for local builds without remote-theme gem
+
 plugins:
-  - jekyll-feed
-  - jekyll-seo-tag
-  - jekyll-sitemap
+  - jekyll-remote-theme # Required to load the Slate theme from GitHub
+  - jekyll-seo-tag      # Adds better title/desc tags for Google
+  - jekyll-sitemap      # Creates sitemap.xml for search engines
+  - jekyll-feed         # Creates feed.xml for RSS readers
   - jemoji
+
+
+# -----------------------------------------------------------------------------
+# EXCLUDES
+# -----------------------------------------------------------------------------
+# Files to ignore when building the site
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
