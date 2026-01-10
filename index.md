@@ -22,7 +22,7 @@
 - [18th: Lake Ohrid - Technical](https://paddleklub.com/home](https://paddleklub.com/event-info)
 - [19th: Lake Ohrid - Distance](https://paddleklub.com/home](https://paddleklub.com/event-info)
 
-### Aug
+### Aug
 
 - []()
 - []()
@@ -32,7 +32,7 @@
 - [18th: Great Glen](https://greatglenpaddlechallenge.com/)
 - []()
 
-### Oct
+### Oct
 
 - [Glasgow to Edinburgh](#)
 
