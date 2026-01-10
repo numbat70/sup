@@ -14,19 +14,15 @@
 
 ### June
 
-- []()
-- []()
 
 ### July
 
-- [18th: Lake Ohrid - Technical](https://paddleklub.com/home](https://paddleklub.com/event-info)
-- [19th: Lake Ohrid - Distance](https://paddleklub.com/home](https://paddleklub.com/event-info)
+- [18th: Lake Ohrid - Technical](https://paddleklub.com/event-info)
+- [19th: Lake Ohrid - Distance](https://paddleklub.com/event-info)
 
 
 ### Aug
 
-- []()
-- []()
 
 ### Sep
 
