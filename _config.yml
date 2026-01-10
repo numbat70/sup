@@ -19,7 +19,7 @@ baseurl: "/sup"                   # The name of your repository
 remote_theme: pages-themes/slate@v0.2.0
 
 # Slate-specific options
-show_downloads: true  # Shows "Download Zip/Tar" buttons in the header
+show_downloads: false  # Shows "Download Zip/Tar" buttons in the header
 # google_analytics: UA-123456-7  # Uncomment and add ID if you use GA
 
 # -----------------------------------------------------------------------------
