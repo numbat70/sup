@@ -1,6 +1,21 @@
+title: "Sup Site"
+email: numbat70@icloud.com
+description: >- # this means to ignore newlines until "baseurl:"
+SUP Stuff
 
-prose:
-  rooturl: ''
-  siteurl: 'http://scotentSD.github.io/praresearchctice'
-  relativeLinks: 'http://scotentSD.github.io/research/links.jsonp'
-  media: 'media'
+# -----------------------------------------------------------------------------
+# URL SETTINGS (Crucial for GitHub Pages Project Sites)
+# -----------------------------------------------------------------------------
+url: "https://numbat70.github.io" # Your base domain
+baseurl: "/sup"                   # The name of your repository
+
+# -----------------------------------------------------------------------------
+# BUILD SETTINGS
+# -----------------------------------------------------------------------------
+theme: minima
+markdown: kramdown
+
+# Standard plugins supported by GitHub Pages
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
