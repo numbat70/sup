@@ -1,3 +1,13 @@
+<style>
+  strong {
+    background-color: #fff2ac; /* Light yellow highlight */
+    color: #333; /* Dark text for contrast */
+    padding: 0 4px; /* Give the highlight some breathing room */
+    border-radius: 3px; /* Soften the corners */
+    font-weight: 600; /* Slightly less heavy than standard bold */
+  }
+</style>
+
 # SUP STUFF
 
 ## Races
