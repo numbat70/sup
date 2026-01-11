@@ -29,7 +29,7 @@
 ### Aug
 
 - **[1st: Loch Lomond(GBSUP)]()**
-- [23rd: Th Big Dippa]()
+- [23rd: The Big Dippa]()
 
 ### Sep
 
