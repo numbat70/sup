@@ -42,14 +42,14 @@
 
 ### Sep
 
-- [18th: Great Glen](https://greatglenpaddlechallenge.com/)
-- [19th: Great Glen](https://greatglenpaddlechallenge.com/)
+- **[18th: Great Glen](https://greatglenpaddlechallenge.com/)**
+- **[19th: Great Glen](https://greatglenpaddlechallenge.com/)**
 - [18th: GBSUP Windermere]()
 - [19th: GBSUP Windermere]()
 
 ### Oct
 
-- [3rd: Glasgow to Edinburgh](https://www.facebook.com/paddlescot)
-- [4th: Glasgow to Edinburgh](https://www.facebook.com/paddlescot)
+- **[3rd: Glasgow to Edinburgh](https://www.facebook.com/paddlescot)**
+- **[4th: Glasgow to Edinburgh](https://www.facebook.com/paddlescot)**
 
 
