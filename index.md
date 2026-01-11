@@ -15,21 +15,28 @@
 
 ### June
 
+- [6th: Moray Firth Challenge]()
+- 
+
 
 ### July
 
+- [11th: Eliminator]()
 - **[18th: Lake Ohrid - Technical](https://paddleklub.com/event-info)**
 - **[19th: Lake Ohrid - Distance](https://paddleklub.com/event-info)**
 
 
 ### Aug
 
-- **[1st: Loch Lomond??? TBC]()**
+- **[1st: Loch Lomond(GBSUP)]()**
+- [23rd: Th Big Dippa]()
 
 ### Sep
 
 - [18th: Great Glen](https://greatglenpaddlechallenge.com/)
 - [19th: Great Glen](https://greatglenpaddlechallenge.com/)
+- [18th: GBSUP Windermere]()
+- [19th: GBSUP Windermere]()
 
 ### Oct
 
