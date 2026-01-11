@@ -16,7 +16,6 @@
 ### June
 
 - [6th: Moray Firth Challenge]()
-- 
 
 
 ### July
