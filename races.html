@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race Planner</title>
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        /* BASE STYLES */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background: #f0f2f5; color: #333; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        /* COLOR SCHEME */
+        tr.race-a { background-color: #ff0000 !important; color: white; } 
+        tr.race-b { background-color: #ffbf00 !important; color: #333; } 
+        tr.race-c { background-color: #ffffcc !important; color: #333; } 
+
+        .header-actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .filters { display: flex; gap: 20px; background: #ebf5fb; padding: 12px 20px; border-radius: 8px; border: 1px solid #d6eaf8; margin-bottom: 20px; font-weight: bold; }
+        .filters label { cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.9em; }
+
+        .controls { border: 2px dashed #3498db; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px; background: #fcfdfe; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: middle; }
+        th { background: #3498db !important; color: white !important; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px; }
+        
+        .distance-cell { font-weight: bold; font-size: 1.1em; }
+        .date-display { font-weight: bold; display: block; }
+        .countdown { font-size: 0.9em; opacity: 0.9; display: block; margin-top: 4px; }
+        tr.race-a .countdown { color: #ffebeb; }
+
+        .radio-group { display: flex; flex-direction: column; gap: 8px; }
+        .radio-group label { cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 0.95rem; }
+        .radio-group input { transform: scale(1.6); margin: 0; }
+
+        /* PRINT ONLY TEXT - Updated to 1.0em */
+        .print-label { display: none; font-size: 1.0em; font-weight: bold; text-transform: uppercase; }
+        #print-timestamp { display: none; margin-bottom: 20px; font-style: italic; border-bottom: 2px solid #333; padding-bottom: 10px; }
+
+        .btn { border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        .print-btn { background: #2ecc71; color: white; }
+        .reset-btn { background: #e74c3c; color: white; }
+        .load-btn { background: #3498db; color: white; }
+        .wipe-btn { background: #333; color: white; }
+
+        /* --- PRINT CONFIGURATION --- */
+        @media print {
+            body { background: white; margin: 0; color: black !important; }
+            .container { box-shadow: none; max-width: 100%; width: 100%; padding: 0; }
+            .controls, .header-actions, .filters, .radio-group { display: none !important; }
+            .print-label, #print-timestamp { display: block; }
+            th { background-color: #3498db !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            td { border: 1px solid #ddd; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="print-timestamp"></div>
+    
+    <div class="header-actions">
+        <button class="btn print-btn" onclick="prepareAndPrint()">🖨️ Print Race Plan</button>
+        <button class="btn load-btn" id="remoteLoadBtn" onclick="loadRemoteRaces()">🌐 Load Loch SUP List</button>
+        <button class="btn reset-btn" onclick="resetAllStatus()">🔄 Reset Priorities</button>
+        <button class="btn wipe-btn" onclick="wipeMemory()">⚠️ Wipe Page Memory</button>
+    </div>
+
+    <div class="filters">
+        <span><strong>🔍 Filters:</strong></span>
+        <label><input type="checkbox" id="hideUncategorised" onchange="refreshDisplay()"> Hide Uncategorised</label>
+        <label><input type="checkbox" id="hideCRaces" onchange="refreshDisplay()"> Hide C Races</label>
+    </div>
+    
+    <h1>Race Planner</h1>
+    
+    <div class="controls">
+        <label for="fileInput" style="cursor:pointer; color:#3498db; font-weight:bold; font-size: 1.1em;">📂 Manually Upload Races.xlsx</label>
+        <input type="file" id="fileInput" accept=".xlsx, .xls" style="display:none;" />
+    </div>
+
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th>Race Name</th>
+                <th>Distance</th>
+                <th>Race Date & Countdown</th>
+                <th style="width: 200px;">Priority Level</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<script>
+    const db = new Dexie("RacePlannerDB");
+    db.version(2).stores({ races: '++id, Race, Date, Distance, status' });
+
+    const REMOTE_URL = "https://numbat70.github.io/sup/races.xlsx";
+
+    function prepareAndPrint() {
+        document.getElementById('print-timestamp').innerText = "Race Plan Generated: " + new Date().toLocaleString();
+        window.print();
+    }
+
+    async function resetAllStatus() {
+        if (confirm("Reset all priorities to white?")) {
+            await db.races.toCollection().modify({ status: '' });
+            refreshDisplay();
+        }
+    }
+
+    async function wipeMemory() {
+        if (confirm("DANGER: This will delete ALL races and saved priorities. Continue?")) {
+            await db.delete();
+            location.reload();
+        }
+    }
+
+    async function updateRowStatus(id, newStatus) {
+        await db.races.update(id, { status: newStatus });
+        refreshDisplay(); 
+    }
+
+    function parseDate(dateValue) {
+        if (typeof dateValue === 'number') {
+            return new Date(Math.round((dateValue - 25569) * 864e5));
+        }
+        return new Date(dateValue);
+    }
+
+    function formatRaceDate(dateValue) {
+        const d = parseDate(dateValue);
+        if (isNaN(d.getTime())) return { full: "Invalid Date", weeks: "" };
+        const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+        const dateString = d.toLocaleDateString('en-GB', options);
+        const now = new Date();
+        const diffWeeks = Math.floor((d - now) / (1000 * 60 * 60 * 24 * 7));
+        let countdownText = diffWeeks > 0 ? `${diffWeeks} weeks to go` : (diffWeeks === 0 && (d - now) > 0 ? "Less than a week to go" : "Race Finished");
+        return { full: dateString, weeks: countdownText };
+    }
+
+    async function processExcelData(data) {
+        const workbook = XLSX.read(data, {type: 'array'});
+        const sheet = workbook.Sheets["Races"];
+        if (!sheet) { alert("Sheet 'Races' not found."); return; }
+        const rawData = XLSX.utils.sheet_to_json(sheet);
+        const existing = await db.races.toArray();
+        const cleanData = rawData.map(row => {
+            const match = existing.find(ex => ex.Race === row.Race);
+            return { Race: row.Race, Date: row.Date, Distance: row.Distance, status: match ? match.status : '' };
+        });
+        await db.races.clear();
+        await db.races.bulkAdd(cleanData);
+        refreshDisplay();
+    }
+
+    async function loadRemoteRaces() {
+        const btn = document.getElementById('remoteLoadBtn');
+        btn.disabled = true; btn.innerText = "⏳ Loading...";
+        try {
+            const response = await fetch(REMOTE_URL);
+            const arrayBuffer = await response.arrayBuffer();
+            await processExcelData(new Uint8Array(arrayBuffer));
+            btn.innerText = "✅ Loaded from Web";
+        } catch (error) { alert("Error loading list."); btn.innerText = "🌐 Load Loch SUP List"; }
+        finally { btn.disabled = false; }
+    }
+
+    async function refreshDisplay() {
+        let allRaces = [];
+        try { allRaces = await db.races.toArray(); } catch(e) {}
+        const tableBody = document.getElementById('tableBody');
+
+        const hideUncategorised = document.getElementById('hideUncategorised').checked;
+        const hideC = document.getElementById('hideCRaces').checked;
+
+        if (allRaces.length === 0) {
+            tableBody.innerHTML = "<tr><td colspan='4' style='text-align:center; padding: 40px;'>No data found.</td></tr>";
+            return;
+        }
+
+        allRaces.sort((a, b) => parseDate(a.Date) - parseDate(b.Date));
+
+        const filteredRaces = allRaces.filter(item => {
+            if (hideUncategorised && !item.status) return false;
+            if (hideC && item.status === 'race-c') return false;
+            return true;
+        });
+
+        tableBody.innerHTML = filteredRaces.map(item => {
+            const s = item.status;
+            const dateInfo = formatRaceDate(item.Date);
+            let label = s === 'race-a' ? "A Race" : s === 'race-b' ? "B Race" : s === 'race-c' ? "C Race" : "";
+
+            return `
+                <tr class="${s || ''}">
+                    <td><strong>${item.Race || 'Unnamed Race'}</strong></td>
+                    <td class="distance-cell">${item.Distance || 'N/A'}</td>
+                    <td>
+                        <span class="date-display">${dateInfo.full}</span>
+                        <span class="countdown">${dateInfo.weeks}</span>
+                    </td>
+                    <td>
+                        <div class="print-label">${label}</div>
+                        <div class="radio-group">
+                            <label><input type="radio" name="r-${item.id}" ${s === 'race-a' ? 'checked' : ''} onclick="updateRowStatus(${item.id}, 'race-a')"> <span>A Race</span></label>
+                            <label><input type="radio" name="r-${item.id}" ${s === 'race-b' ? 'checked' : ''} onclick="updateRowStatus(${item.id}, 'race-b')"> <span>B Race</span></label>
+                            <label><input type="radio" name="r-${item.id}" ${s === 'race-c' ? 'checked' : ''} onclick="updateRowStatus(${item.id}, 'race-c')"> <span>C Race</span></label>
+                            <label><input type="radio" name="r-${item.id}" ${!s ? 'checked' : ''} onclick="updateRowStatus(${item.id}, '')"> <span style="font-size:0.8em; opacity:0.7;">Clear</span></label>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => processExcelData(new Uint8Array(e.target.result));
+        reader.readAsArrayBuffer(file);
+    });
+
+    refreshDisplay();
+</script>
+</body>
+</html>
