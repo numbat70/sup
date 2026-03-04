@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Planner - Total Duration</title>
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 40px; background: #f0f2f5; color: #333; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        /* UPDATED COLORS */
+        tr.status-moving { background-color: #2ecc71 !important; color: #333; } /* Now Green */
+        tr.status-rest { background-color: #ffffff !important; color: #333; }    /* Now White */
+
+        .header-actions { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .time-control { background: #ebf5fb; padding: 15px; border-radius: 8px; border: 1px solid #3498db; display: flex; align-items: center; gap: 10px; font-weight: bold; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: middle; }
+        th { background: #3498db !important; color: white !important; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px; }
+        
+        tfoot tr { background: #2c3e50 !important; color: white !important; font-weight: bold; }
+        tfoot td { border-top: 2px solid #333; font-size: 1.1em; }
+
+        .time-cell { font-family: monospace; font-weight: bold; font-size: 1.2em; }
+        .edit-input { width: 70px; padding: 5px; font-weight: bold; border: 1px solid #ccc; border-radius: 4px; text-align: center; }
+        
+        /* Input styling for green rows */
+        tr.status-moving .edit-input { background: rgba(255,255,255,0.7); color: #333; }
+
+        .btn { border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .print-btn { background: #2ecc71; color: white; }
+        .wipe-btn { background: #333; color: white; }
+
+        @media print {
+            .header-actions, .edit-input, .controls { display: none !important; }
+            .print-val { display: inline !important; font-weight: bold; }
+            th, tfoot tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+        .print-val { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="print-timestamp"></div>
+    
+    <div class="header-actions">
+        <div class="time-control">
+            <label for="startTime">🚀 Start Time:</label>
+            <input type="time" id="startTime" value="09:00" onchange="refreshDisplay()">
+        </div>
+        <button class="btn print-btn" onclick="window.print()">🖨️ Print Schedule</button>
+        <button class="btn wipe-btn" onclick="wipeMemory()">⚠️ Wipe Memory</button>
+    </div>
+    
+    <h1>Trip Planner</h1>
+    
+    <div class="controls" style="border: 2px dashed #3498db; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px;">
+        <label for="fileInput" style="cursor:pointer; color:#3498db; font-weight:bold;">📂 Upload trip.xlsx</label>
+        <input type="file" id="fileInput" accept=".xlsx, .xls" style="display:none;" />
+    </div>
+
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th>Arrival Time</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Distance</th>
+                <th>Speed</th>
+                <th>Status</th>
+                <th>Duration</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+        <tfoot id="tableFoot"></tfoot>
+    </table>
+</div>
+
+<script>
+    const db = new Dexie("TripPlannerDB_v5");
+    db.version(1).stores({ trips: '++id, Name, Description, Distance, Speed, Status, Duration' });
+
+    async function wipeMemory() {
+        if (confirm("Delete all data?")) { await db.delete(); location.reload(); }
+    }
+
+    async function processExcelData(data) {
+        const workbook = XLSX.read(data, {type: 'array'});
+        const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+        const preparedData = rawData.map(row => ({ ...row, Duration: row.Duration || 10 }));
+        await db.trips.clear();
+        await db.trips.bulkAdd(preparedData);
+        refreshDisplay();
+    }
+
+    async function updateRow(id, field, value) {
+        let updateObj = {}; updateObj[field] = parseFloat(value) || 0;
+        await db.trips.update(id, updateObj);
+        refreshDisplay();
+    }
+
+    function formatDuration(totalMinutes) {
+        const mins = Math.round(totalMinutes);
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        if (h > 0) return `${h}h ${m}m`;
+        return `${m}m`;
+    }
+
+    function addMinutes(timeStr, mins) {
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hours, minutes + Math.round(mins), 0);
+        return date.toTimeString().slice(0, 5);
+    }
+
+    async function refreshDisplay() {
+        let allTrips = [];
+        try { allTrips = await db.trips.toArray(); } catch(e) {}
+        const tableBody = document.getElementById('tableBody');
+        const tableFoot = document.getElementById('tableFoot');
+        let currentTime = document.getElementById('startTime').value;
+        let totalMins = 0;
+
+        if (allTrips.length === 0) {
+            tableBody.innerHTML = "<tr><td colspan='7' style='text-align:center; padding: 40px;'>No data.</td></tr>";
+            tableFoot.innerHTML = "";
+            return;
+        }
+
+        let bodyHtml = "";
+        allTrips.forEach((item) => {
+            const status = (item.Status || "").toString().trim().toLowerCase();
+            const dist = parseFloat(item.Distance) || 0;
+            const speed = parseFloat(item.Speed) || 0;
+            
+            let duration = 0;
+            let speedMarkup = "";
+            let durationMarkup = "";
+            let rowClass = (status === "moving") ? "status-moving" : "status-rest";
+
+            if (status === "moving") {
+                duration = speed > 0 ? (dist / speed) * 60 : 0;
+                speedMarkup = `<input type="number" step="0.1" class="edit-input" value="${speed}" onchange="updateRow(${item.id}, 'Speed', this.value)"><span class="print-val">${speed}</span>`;
+                durationMarkup = formatDuration(duration);
+            } else {
+                duration = parseFloat(item.Duration) || 10;
+                durationMarkup = `<input type="number" class="edit-input" value="${duration}" onchange="updateRow(${item.id}, 'Duration', this.value)"><span class="print-val">${formatDuration(duration)}</span>`;
+            }
+
+            bodyHtml += `
+                <tr class="${rowClass}">
+                    <td class="time-cell">${currentTime}</td>
+                    <td><strong>${item.Name || ''}</strong></td>
+                    <td>${item.Description || ''}</td>
+                    <td>${dist || ''}</td>
+                    <td>${speedMarkup}</td>
+                    <td style="text-transform: uppercase; font-weight: bold;">${item.Status || ''}</td>
+                    <td>${durationMarkup}</td>
+                </tr>`;
+            
+            totalMins += duration;
+            currentTime = addMinutes(currentTime, duration);
+        });
+
+        tableBody.innerHTML = bodyHtml;
+        tableFoot.innerHTML = `
+            <tr>
+                <td colspan="6" style="text-align: right;">TOTAL TRIP DURATION:</td>
+                <td>${formatDuration(totalMins)} (Arrival: ${currentTime})</td>
+            </tr>`;
+    }
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => processExcelData(new Uint8Array(e.target.result));
+        reader.readAsArrayBuffer(file);
+    });
+
+    refreshDisplay();
+</script>
+</body>
+</html>
