@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prioritiser</title>
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        /* BASE STYLES */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background: #f0f2f5; color: #333; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        /* COLOR SCHEME */
+        tr.status-high { background-color: #ff0000 !important; color: white; } 
+        tr.status-medium { background-color: #ffbf00 !important; color: #333; } 
+        tr.status-low { background-color: #ffffcc !important; color: #333; } 
+
+        .header-actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .filters { display: flex; gap: 20px; background: #ebf5fb; padding: 12px 20px; border-radius: 8px; border: 1px solid #d6eaf8; margin-bottom: 20px; font-weight: bold; }
+        .filters label { cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.9em; }
+
+        .controls { border: 2px dashed #3498db; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 20px; background: #fcfdfe; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: middle; }
+        th { background: #3498db !important; color: white !important; text-transform: uppercase; font-size: 0.85em; letter-spacing: 1px; }
+        
+        .effort-cell { font-weight: bold; font-size: 1.1em; }
+
+        .radio-group { display: flex; flex-direction: column; gap: 8px; }
+        .radio-group label { cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 0.95rem; }
+        .radio-group input { transform: scale(1.6); margin: 0; }
+
+        /* PRINT ONLY TEXT */
+        .print-label { display: none; font-size: 1.0em; font-weight: bold; text-transform: uppercase; }
+        #print-timestamp { display: none; margin-bottom: 20px; font-style: italic; border-bottom: 2px solid #333; padding-bottom: 10px; }
+
+        /* BUTTONS */
+        .btn { border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        .print-btn { background: #2ecc71; color: white; }
+        .load-btn { background: #3498db; color: white; }
+        .sort-btn { background: #9b59b6; color: white; }
+        .toggle-btn { background: #5d6d7e; color: white; }
+        .reset-btn { background: #e74c3c; color: white; }
+        .wipe-btn { background: #333; color: white; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* CLASS TO HIDE COLUMN */
+        .hidden-col { display: none !important; }
+
+        @media print {
+            body { background: white; margin: 0; color: black !important; }
+            .container { box-shadow: none; max-width: 100%; width: 100%; padding: 0; }
+            .controls, .header-actions, .filters, .radio-group { display: none !important; }
+            .print-label, #print-timestamp { display: block; }
+            th { background-color: #3498db !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            tr { -webkit-print-color-adjust: exact; print-color-adjust: exact; color: black !important; }
+            td { border: 1px solid #ddd; }
+            /* If hidden on screen, keep it hidden on print */
+            th.hidden-col, td.hidden-col { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="print-timestamp"></div>
+    
+    <div class="header-actions">
+        <button class="btn print-btn" onclick="prepareAndPrint()">🖨️ Print List</button>
+        <button class="btn load-btn" id="remoteLoadBtn" onclick="loadDefaultList()">🌐 Load Default</button>
+        <button class="btn sort-btn" onclick="sortItems()">📊 Sort</button>
+        <button class="btn toggle-btn" onclick="togglePriorityColumn()">👁️ Show/Hide Priority</button>
+        <button class="btn reset-btn" onclick="resetAllStatus()">🔄 Reset</button>
+        <button class="btn wipe-btn" onclick="wipeMemory()">⚠️ Wipe</button>
+    </div>
+
+    <div class="filters">
+        <span><strong>🔍 Filters:</strong></span>
+        <label><input type="checkbox" id="hideUncategorised" onchange="refreshDisplay()"> Hide Uncategorised</label>
+        <label><input type="checkbox" id="hideLow" onchange="refreshDisplay()"> Hide Low Priority</label>
+    </div>
+    
+    <h1>Prioritiser</h1>
+    
+    <div class="controls">
+        <label for="fileInput" style="cursor:pointer; color:#3498db; font-weight:bold; font-size: 1.1em;">📂 Upload stuff.xlsx</label>
+        <input type="file" id="fileInput" accept=".xlsx, .xls" style="display:none;" />
+    </div>
+
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Effort</th>
+                <th id="priorityColHeader" style="width: 200px;">Priority Level</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<script>
+    const db = new Dexie("PrioritiserDB");
+    db.version(1).stores({ items: '++id, Name, Description, Effort, status' });
+
+    const DEFAULT_URL = "https://numbat70.github.io/sup/stuff.xlsx";
+    let isSorted = false;
+    let columnHidden = false;
+
+    function prepareAndPrint() {
+        document.getElementById('print-timestamp').innerText = "Priority List Generated: " + new Date().toLocaleString();
+        window.print();
+    }
+
+    // --- NEW: TOGGLE COLUMN ---
+    function togglePriorityColumn() {
+        columnHidden = !columnHidden;
+        const header = document.getElementById('priorityColHeader');
+        header.classList.toggle('hidden-col', columnHidden);
+        
+        const cells = document.querySelectorAll('.priority-cell');
+        cells.forEach(cell => cell.classList.toggle('hidden-col', columnHidden));
+    }
+
+    async function resetAllStatus() {
+        if (confirm("Reset all priorities?")) {
+            await db.items.toCollection().modify({ status: '' });
+            isSorted = false;
+            refreshDisplay();
+        }
+    }
+
+    async function wipeMemory() {
+        if (confirm("Delete ALL data?")) {
+            await db.delete();
+            location.reload();
+        }
+    }
+
+    async function updateStatus(id, newStatus) {
+        await db.items.update(id, { status: newStatus });
+        refreshDisplay(); 
+    }
+
+    async function sortItems() {
+        isSorted = true;
+        refreshDisplay();
+    }
+
+    function getPriorityScore(status) {
+        if (status === 'status-high') return 1;
+        if (status === 'status-medium') return 2;
+        if (status === 'status-low') return 3;
+        return 4;
+    }
+
+    async function processExcelData(data) {
+        const workbook = XLSX.read(data, {type: 'array'});
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rawData = XLSX.utils.sheet_to_json(sheet);
+        const existing = await db.items.toArray();
+        
+        const cleanData = rawData.map(row => {
+            const match = existing.find(ex => ex.Name === row.Name);
+            return { Name: row.Name, Description: row.Description, Effort: row.Effort, status: match ? match.status : '' };
+        });
+        await db.items.clear();
+        await db.items.bulkAdd(cleanData);
+        isSorted = false;
+        refreshDisplay();
+    }
+
+    async function loadDefaultList() {
+        const btn = document.getElementById('remoteLoadBtn');
+        btn.disabled = true; btn.innerText = "⏳...";
+        try {
+            const response = await fetch(DEFAULT_URL);
+            const arrayBuffer = await response.arrayBuffer();
+            await processExcelData(new Uint8Array(arrayBuffer));
+            btn.innerText = "🌐 Load Default";
+        } catch (error) { alert("Error loading list."); btn.innerText = "🌐 Load Default"; }
+        finally { btn.disabled = false; }
+    }
+
+    async function refreshDisplay() {
+        let allItems = [];
+        try { allItems = await db.items.toArray(); } catch(e) {}
+        const tableBody = document.getElementById('tableBody');
+
+        const hideUncategorised = document.getElementById('hideUncategorised').checked;
+        const hideLow = document.getElementById('hideLow').checked;
+
+        if (allItems.length === 0) {
+            tableBody.innerHTML = "<tr><td colspan='4' style='text-align:center; padding: 40px;'>No data.</td></tr>";
+            return;
+        }
+
+        if (isSorted) {
+            allItems.sort((a, b) => {
+                const scoreA = getPriorityScore(a.status);
+                const scoreB = getPriorityScore(b.status);
+                if (scoreA !== scoreB) return scoreA - scoreB;
+                return (parseFloat(a.Effort) || 999) - (parseFloat(b.Effort) || 999);
+            });
+        }
+
+        const filtered = allItems.filter(item => {
+            if (hideUncategorised && !item.status) return false;
+            if (hideLow && item.status === 'status-low') return false;
+            return true;
+        });
+
+        tableBody.innerHTML = filtered.map(item => {
+            const s = item.status;
+            let label = s === 'status-high' ? "High" : s === 'status-medium' ? "Medium" : s === 'status-low' ? "Low" : "";
+            // Apply hidden class if toggle is active
+            const hiddenClass = columnHidden ? 'hidden-col' : '';
+
+            return `
+                <tr class="${s || ''}">
+                    <td><strong>${item.Name || 'Unnamed'}</strong></td>
+                    <td>${item.Description || ''}</td>
+                    <td class="effort-cell">${item.Effort || 'N/A'}</td>
+                    <td class="priority-cell ${hiddenClass}">
+                        <div class="print-label">${label}</div>
+                        <div class="radio-group">
+                            <label><input type="radio" name="r-${item.id}" ${s === 'status-high' ? 'checked' : ''} onclick="updateStatus(${item.id}, 'status-high')"> <span>High</span></label>
+                            <label><input type="radio" name="r-${item.id}" ${s === 'status-medium' ? 'checked' : ''} onclick="updateStatus(${item.id}, 'status-medium')"> <span>Medium</span></label>
+                            <label><input type="radio" name="r-${item.id}" ${s === 'status-low' ? 'checked' : ''} onclick="updateStatus(${item.id}, 'status-low')"> <span>Low</span></label>
+                            <label><input type="radio" name="r-${item.id}" ${!s ? 'checked' : ''} onclick="updateStatus(${item.id}, '')"> <span style="font-size:0.8em; opacity:0.7;">Clear</span></label>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => processExcelData(new Uint8Array(e.target.result));
+        reader.readAsArrayBuffer(file);
+    });
+
+    refreshDisplay();
+</script>
+</body>
+</html>
